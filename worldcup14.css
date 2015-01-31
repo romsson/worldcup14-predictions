@@ -1,0 +1,137 @@
+body {
+  font: 10px sans-serif;
+}
+
+h1 { 
+  padding: 0px;
+  font-family: 'Waiting for the Sunrise', cursive;
+  font-size: 44px !important;
+  font-weight: 800; 
+}
+
+
+svg {
+    border: solid 0px #ccc;
+}
+
+p {
+  font-size: 14px;
+  font-weight: 200;
+}
+
+/* Preven selection 
+   Credit: http://stackoverflow.com/questions/826782/css-rule-to-disable-text-selection-highlighting
+*/
+html,body{
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+a {
+  color: black;
+}
+
+.node circle, .teams {
+  cursor: pointer;
+  fill: #fff;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+.timepoint {
+  cursor: pointer;
+  fill: lightblue;
+  stroke: white;
+  stroke-width: 1.5px;
+  opacity: .8;
+}
+
+path {
+  fill: none;
+  pointer-events: none;
+}
+
+path.link, line.line {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+
+.flag {
+      border: solid 5px #ccc;
+}
+
+.game {
+  stroke-width: 1; 
+  stroke-dasharray: 5 2;
+  stroke: #ccc;
+  fill: white;
+}
+
+.game.active {
+  fill: lightgreen;
+}
+
+.team, rect {
+  stroke-width: 1; 
+  stroke-dasharray: 2 2;
+  stroke: #ccc;
+  fill: white;
+}
+
+.team:hover {
+  fill: yellow; 
+}
+
+.origin {
+  stroke-width: 1; 
+  stroke-dasharray: 2 2;
+  stroke: #ccc;
+}
+
+.team:hover {
+  stroke-width: 2; 
+}
+
+.axis {
+  font: 10px sans-serif;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
+.description {
+  font-size: 20px;
+  fill: gray;
+  font-family: 'Waiting for the Sunrise', cursive;
+  font-weight: 50; 
+  opacity:.8;
+}
+
+
+.axis .domain {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: .3;
+  stroke-width: 10px;
+  stroke-linecap: round;
+}
+
+.axis .halo {
+  fill: none;
+  stroke: #ddd;
+  stroke-width: 8px;
+  stroke-linecap: round;
+}
+
+.slider .handle {
+  fill: #fff;
+  stroke: #000;
+  stroke-opacity: .5;
+  stroke-width: 1.25px;
+  pointer-events: none;
+}

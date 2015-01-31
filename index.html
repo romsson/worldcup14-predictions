@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset=utf-8 />
+
+<link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.1.0/css/font-awesome.css" rel="stylesheet">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">  
+  <meta name="description" content="Predictions for the 2014 Soccer World Cup: All Routes Lead to Glory!">
+  <meta property="og:description" content="Drag & drop your team to the Cup!">
+  <meta property="og:image" content="http://romain.vuillemot.net/projects/worldcup14/worldcup14.png">
+  <meta property="og:url" content="http://romain.vuillemot.net/projects/worldcup14/">
+  <meta property="og:title" content="Predictions for the 2014 Soccer World Cup: All Routes Lead to Glory!">
+
+  <title>Predictions for the 2014 Soccer World Cup: All Roads Lead to the Cup!</title>
+  
+  <link rel="stylesheet" type="text/css" href="worldcup14.css" media="screen" />
+  <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+  <script src="dragit.js" type="text/javascript" charset="utf-8"></script>
+  <script src="utils.js" type="text/javascript" charset="utf-8"></script>  
+  <link href='http://fonts.googleapis.com/css?family=Waiting+for+the+Sunrise' rel='stylesheet' type='text/css'>
+  <link href="http://romain.vuillemot.net/projects/worldcup14/" rel="canonical" id="new-url">
+
+
+</head>
+<body>
+
+<!--FB code to include after /body -->
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) return;
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=251461691555585&version=v2.0";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+<!-- Main visualization node + background -->
+  <div id="viz">
+    <div id="background" style="background-image:url('background.jpg'); background-position: left 0px top 0px; width:860px; height:860px; background-size: 850px 800px; background-repeat: no-repeat; position:absolute;"></div>
+  </div>
+
+<div style="position:absolute; left:970px; top:0px; width:300px">
+  <h1><span style="font-weight:800">World Cup 2014</b> <i>All Roads Lead to the Cup!</i></h1>
+
+  <p>Predict each team's performance by drag & dropping its flag along its path in the bracket</p> 
+
+  <p style="margin-left:50px"><img src="tutorial.gif" width=200/></p>
+
+
+  <p><a href="#" onclick="reset_tournament()"><i class="fa fa-undo"></i> Reset<a> to start over from an empty bracket</p>
+
+  <p><a href="#" onclick="simulate_tournament()"><i class="fa fa-magic"></i> Auto-complete<a> to fill the bracket if you're too lazy to do it yourself (beware, it's random!)</p>
+
+  <p>Done? Share the url!</p>
+
+  <br>
+
+<div class="twitter-share-container">
+  <a href="https://twitter.com/share" class="twitter-share-button" data-via="romsson" data-url="http://romain.vuillemot.net/projects/worldcup14/">Tweet</a>
+  <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+</div></p>
+
+
+
+
+  <!-- Place this tag in your head or just before your close body tag. -->
+  <script type="text/javascript" src="https://apis.google.com/js/platform.js"></script>
+
+  <!-- Place this tag where you want the share button to render. -->
+  <div class="g-plus" data-action="share" data-annotation="bubble" data-href="http://romain.vuillemot.net/projects/worldcup14/"></div>
+
+
+  <!-- Social media buttons -->
+  <div class="fb-share-button" data-href="http://romain.vuillemot.net/projects/worldcup14/" data-type="button_count"></div>
+
+
+  <p>Created by <a href="http://romain.vuillemot.net/">Romain Vuillemot</a> using <a href="http://d3js.org/">d3.js</a> and <a href="https://github.com/romsson/dragit">dragit.js</a>. Graphics and data from <a href="http://www.wikipedia.org/">Wikipedia</a>. Best viewed in <a href="https://www.google.com/chrome/browser/">Google Chrome</a>.</p>
+
+
+  <div id="params" style="display:none">
+    <form> 
+      <label>
+        <input type="button" name="mode" id="allPaths" value="Show All Paths" onclick="update_paths('SHOW_ALL_PATH')">
+        <input type="button" name="mode" id="simulate" value="Simulate Remaining Tournament" onclick="simulate_tournament(true)">
+        <input type="button" name="mode" id="simulate" value="Reset" onclick="reset_tournament()"> 
+        <input type="button" name="mode" id="simulate" value="Hide rects" onclick="d3.selectAll('rect').style('display', 'none');">
+        <input type="button" name="mode" id="simulate" value="Hide text" onclick="d3.selectAll('text').style('display', 'none'); d3.selectAll('.description').style('display', 'block')">
+      </label>
+    </form>       
+  </div>
+
+  <script type="text/javascript">
+
+  var dev = false;
+
+  var margin = {top: 50, bottom: 10, left:100, right: 40};
+  var w = 950, h = 800;
+  var width = w - margin.left - margin.right;
+  var height = h - margin.top - margin.bottom;
+  var team_width = 40, team_height = 20, game_width = 30, game_height = 20;
+
+  var background_opacity = .6;
+
+  var root =  d3.select("#viz").append("svg:svg").style("position", "absolute")
+                .attr("width", w)
+                .attr("height", height+100)
+  var svg = root
+                .append("svg:g")
+                .attr("transform", "translate("+margin.left+", "+margin.top+")");
+
+  var gGroups = svg.append("g").attr("class", "gGroup");
+  var gRankings = svg.append("g").attr("class", "gRankings");
+  var gBracket = svg.append("g").attr("class", "gBracket");
+  var gDescription = svg.append("g").attr("class", "gDescription");
+  var data_groups = data.games.filter(function(d, i) { return i<48 ? d: false; });
+
+  var queryString = location.search.substring(1), re = /([^&=]+)=([^&]*)/g;
+ 
+  var current_team = "", current_game = "", current_path = -1;
+  var current_prediction = decode_url();
+
+  data.teams.map(function(d) { d.nb_games = 0; }); // Counter for group games
+
+  //////////////////////////////////////////////////////////////////
+  // Groups (gGroup) ///////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////
+
+  // Filter by group stage games
+  data_groups.map(function(d, i) {
+
+    // Append a gGame node. Does not cotain any data
+    var gGames = gGroups.append("g")
+                        .data([{"game": i}])
+                        .attr("id", "game_"+i)
+                        .attr("class", "gGame")
+                        .attr("transform", function(e) {
+                        
+                          var group_offset = Math.floor(i/2)%8 * 20;
+                          return "translate("+(50*(Math.floor(i/16)))+", "+(20*(i%16*2) + group_offset)+")";
+                        });
+
+    // Game number
+    gGames.append("svg:text")
+          .attr("dx", 17)
+          .attr("dy", 15)
+          .attr("text-anchor", "middle")
+          .text(function(d) { return d.game; })
+
+    // Bind the data (team Home and team Away) to the gGame
+    var gTeams = gGames.selectAll(".gTeam")
+      .data([{"team": d.home, "type":"home", "score": d.scoreHome, "game": d.id}, 
+            {"team": d.away, "type":"away", "score": d.scoreAway, "game": d.id}])
+    .enter()
+      .append("g").attr("class", "gTeam")
+      .attr("id", function(e, j) {
+        var team_alias = find_team_alias(e.team);
+        var team_data = find_team_data_by_alias(team_alias);
+        team_data.nb_games++;
+        e.team = team_alias+team_data.nb_games;
+        return "game_"+team_alias+team_data.nb_games; 
+     })
+      .attr("transform", function(e) { return e.type=="home" ? "translate(0, 0)" : "translate(20, 0)"; });
+
+    gTeams.append("svg:rect")
+        .attr({"width": game_width-5, "height": game_height, "y":10, "x": 0})
+        .attr("class", function(d, i) { return "team"; })
+        .style("display", "none") // Simplification purpose
+
+        /*
+    gTeams.append("svg:text")
+          .attr("dx", game_width/2)
+          .attr("dy", 10)
+          .attr("text-anchor", function(d) { return d.type=="home" ? "middle": "middle"; })
+          .text(function(d) { return d.team; })
+
+    gTeams.append("svg:text")
+          .attr("dx", game_width/2-2)
+          .attr("dy", game_height)
+          .attr("text-anchor", "middle")
+          .text(function(d) { return !d.score ? 0: d.score; });
+    
+    */
+    });
+
+    //////////////////////////////////////////////////////////////////
+    // Rankings //////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////
+
+    var ranking_data = d3.range(data.teams.length).map(function(d, i) {
+
+      var index_group = Math.floor(i/(data.teams.length/unique_groups.length));
+      var e = {};
+      e.type = "type";
+      e.teams = data.teams.map(function(f, k) { return f.group == unique_groups[index_group] ? 100:0});
+      e.team = ((i%(data.teams.length/unique_groups.length)) + 1) + unique_groups[index_group];
+      return e;
+      
+    })
+
+    // Retrieve all the teams
+    var team_rankings = gRankings.selectAll(".team")
+                            .data(ranking_data)
+                          .enter()
+                            .append("g")
+                            .attr("class", "gGame")
+                            .attr("transform", function(d, i) { return "translate(0, -50)"; })
+                            .append("g")
+                            .attr("class", "gTeam")
+                            .attr("id", function(d) { return "game_r"+d.team; })
+
+    create_node_team(team_rankings, 200, 0)
+
+    // ideally should be .call(...)
+    function create_node_team(g, x, y, w, h) {
+
+      var w = w || game_width, h = h || game_height;
+
+      g.attr("transform", function(d, i) { 
+
+          if(d.team[0] != "1" && d.team[0] != "2")
+          return "translate(" + (x) + "," + 25*i + ")";
+            else {
+              if(d.team[1] == "A" || d.team[1] ==  "B" || d.team[1] == "C") {
+                return "translate(" + x + "," + (25*i-40) + ")"; 
+              } else {
+                 return "translate(" + x + "," + 25*i + ")"; 
+              }
+            }
+
+      })
+        .append("svg:rect")
+        .attr({"width": w-5, "height": h-4})
+        .style("display", function(d) {
+          if(d.team[0] == "1" || d.team[0] == "2")
+            return "none";
+          else
+            return "block";
+        })
+        //.attr({"y": function(d, i) { return 25*i; }, "x": x})
+        .attr("class", function(d, i) { return "team " + d.type; })
+        .style("opacity", 1)
+
+      g.append("svg:text")
+       // .attr("transform", function(d, i) { return "translate(" + x + "," + 25*i + ")"; })
+        .attr({"width": w-5, "height": h-4})
+        .attr("text-anchor", function(d) { return d.type=="home" ? "end": "start"; })
+        .text(function(d) { return d.team; })
+
+    }
+
+    function create_game_team(game_id, x, y, w, h) {
+
+      var gg = gBracket.selectAll("#rgame_"+game_id)
+        .data([{"game": game_id, "type":"type", "team": game_id}])
+      .enter()
+        .append("g")
+        .attr("class", "gGame")
+        .attr("id", function(d) { return "rgame_"+game_id; })
+        .attr("transform", function(d, i) { 
+          return "translate("+x+", "+y+")"; 
+        })
+        .append("g")
+        .attr("class", "gTeam")
+        .attr("id", function(d) { return "game_"+game_id; })
+
+      create_node_team(gg, 0, 0, w, h);
+
+    }
+
+    create_game_team("L49", 400, 430);
+    create_game_team("L50", 400, 470);
+    create_game_team("L51", 400, 510);
+    create_game_team("L52", 400, 550);    
+    create_game_team("L53", 400, 590);    
+    create_game_team("L54", 400, 630);    
+    create_game_team("L55", 400, 670);    
+    create_game_team("L56", 400, 710);
+
+    create_game_team("L57", 520, 350);
+    create_game_team("L58", 520, 390);
+    create_game_team("L59", 520, 430);
+    create_game_team("L60", 520, 470);
+
+    create_game_team("L63", 750, 320); // 4th place
+    create_game_team("W63", 750, 280); // 3rd place
+
+    create_game_team("L64", 750, 170); // 2nd place
+
+    gBracket.append("image")  
+        .attr({"x": 730, "y": 10})
+        .attr({"width": 50, "height": 100})
+        .attr({"xlink:href": "worldcup.png" })
+             .on("mouseenter", function(d, i) {
+       
+                if(dragit.statemachine.current_state != "drag") {
+          update_paths("SHOW_GAME");
+            current_game ="W64"
+
+  }
+      })
+      .on("mouseleave", function(d, i) {
+
+        if(dragit.statemachine.current_state != "drag") {
+          update_paths("ALL_PATHS");
+        }
+      });  
+
+    create_game_team("W64", 750, 120)//, 150, 100); // 1s place
+
+    //////////////////////////////////////////////////////////////////
+    // Rounds of 16 ///////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////
+
+    create_elimination(48, 56, 300, 50)   // Round of 16
+    create_elimination(56, 60, 450, 100)  // Quarter-finals
+    create_elimination(60, 62, 580, 120)  // Semi-finals
+    create_elimination(62, 64, 700, 120)  // Final games
+//    create_elimination(64, 66, 800, 20)
+
+
+  // Prototype game
+/*
+  gBracket.append("circle")
+          .attr("cx", 715)
+          .attr("cy", 220)
+          .attr("r", 30)
+          .style("fill", "lightgray")
+          .style("opacity", .3)
+
+  gBracket.append("circle")
+          .attr("cx", 715)
+          .attr("cy", 280)
+          .attr("r", 30)
+          .style("fill", "lightgray")
+          .style("opacity", .3)
+
+
+  gBracket.append("rect")
+          .attr("x", 740)
+          .attr("y", 535)
+          .attr("width", 50)
+          .attr("height", 30)
+          .style("fill", "white")
+          .style("opacity", 1)
+
+  gBracket.append("rect")
+          .attr("x", 800)
+          .attr("y", 535)
+          .attr("width", 50)
+          .attr("height", 30)
+          .style("fill", "white")
+          .style("opacity", 1)
+*/
+
+function create_elimination(start, end, x, y) {
+
+  // Filter to games between stard and end
+  data.games.filter(function(d, i) { return i >= start && i < end ? d: false;}).map(function(d, i) {
+
+    // Append a gGame node 
+    var gGames = svg.append("g")
+                    .data([{"game": d.id}])
+                    .attr("id", function() { return "game_"+d.id; })
+                    .attr("class", "gGame")
+                    .attr("transform", function(e) { return "translate("+x+", "+(20*(i%16*2)+80 + y)+")"; });
+
+    gGames.append("svg:text")
+          .attr("dx", 17)
+          .attr("dy", 15)
+          .attr("text-anchor", "middle")
+          .text(function(d) { return d.game; })
+
+    // Bind the data to the gGame to create two gTeam nodes 
+    var gTeams = gGames.selectAll(".gTeam")
+      .data([{"team": d.home, "type":"home", "score": d.scoreHome, "game": d.id}, 
+            {"team": d.away, "type":"away", "score": d.scoreAway, "game": d.id}])
+    .enter()
+      .append("g")
+      .attr("class", "gTeam")
+      .attr("id", function(d) { return "game_"+d.team; })
+      .attr("transform", function(e) { return e.type=="home" ? "translate(0, 0)" : "translate(20, 0)"; });
+
+    gTeams.append("svg:rect")
+        .attr({"width": game_width-5, "height": game_height, "y":10, "x": 0})
+        .attr("class", function(d, i) { return "team"; })
+        .style("display", "none")  // Does not display the games in between 
+
+/** Useful to dev
+    gTeams.append("svg:text")
+          .attr("dx", 10)
+          .attr("dy",10)
+          .attr("text-anchor", function(d) { return d.type=="home" ? "end" : "start"; })
+          .text(function(d) { return d.team; })
+
+    gTeams.append("svg:text")
+          .attr("dx", 7)
+          .attr("dy",25)
+          .attr("text-anchor", "middle")
+          .text(function(d) { 
+            if(!d.score)
+              return 0;
+            else
+              return d.score; 
+          })
+          */
+    });
+
+}
+
+    //////////////////////////////////////////////////////////////////
+    // Teams Flags   /////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////
+    var place_teams = root.append("g").attr("class", "place_teams");
+    var origin_line = place_teams.append("line").attr("class", "origin");
+    var scale_teams = d3.scale.linear().domain([0, data.teams.length]).range([0, height-100]);
+    var teams = place_teams.append("g").attr("class", "teams");
+    var team = teams.selectAll(".gGame")
+      .data(data.teams.map(function(d, i) {
+        var e = {};
+        e.team = d.alias+"0"; //d.team;
+        e.group = d.group;
+        e.alias = d.alias;
+        e.id = i;
+        e.x = 0;
+        e.y = 0;
+        e.t = 0;
+        return e;
+      }))
+    .enter();
+
+    var gTeam = team.append("g");
+
+    team.append("g")
+      .attr("class", "gGame")
+      .attr("transform", function(d, i) { return "translate(0, 0)"; })
+      .append("g")
+      .attr("class", "gTeam")
+      .attr("transform", function(e, j) { 
+        var group_offset = Math.floor(j/4) * 20;
+        return "translate(-80, "+ (scale_teams(e.id)-30 + group_offset) +")"; 
+      })
+      .attr("id", function(d) { return "game_"+d.alias+"0" })
+
+    gTeam.append("rect")
+        .filter(function(e, j) { e.x=0; e.y=scale_teams(e.id); return e;} )
+        // Not visible
+      //  .attr({"width": team_width, "height": team_height})
+        .attr({"x": function(e, j) { return e.x; }, "y": function(e, j) { var group_offset = Math.floor(j/4) * 20; return e.y + group_offset; }}) 
+
+        .attr("class", "team")
+        .style("fill", "white")
+        .style("opacity", .1)
+
+
+
+       
+        // Game number
+    gTeam.append("svg:text")
+        .attr({"x": function(e, j) { return e.x + 10; }, "y": function(e, j) { var group_offset = Math.floor(j/4) * 20; return e.y + group_offset +10; }}) 
+        .attr("dx", 50)
+        .attr("dy", 15)
+        .attr("stroke", "gray")
+        .attr("text-anchor", "left")
+        .attr("class", "description")
+        .style("font-size", "12px")
+        .style("font-weight", 100)
+        .style('font-family', 'sans-serif')
+        .text(function(d, i) { 
+          //return d.team; // Alias
+          return  data.teams[i].team; // Full name
+        })
+        .on("mouseenter", function(d, i) {
+          current_team = d.alias;
+          if(dragit.statemachine.current_state != "drag") {
+            update_paths("SHOW_TEAM");
+          }
+
+        })
+        .on("mouseleave", function(d, i) { 
+          console.log("leave", d)
+          if(dragit.statemachine.current_state != "drag") {
+            update_paths();
+          }
+        })
+        .on("click", function(d) {
+          if(test_team_in_prediction(d.alias, current_prediction)) {
+            var new_prediction = remove_team_prediction(d.alias, current_prediction);
+            display_prediction(new_prediction, current_prediction);
+            current_prediction = new_prediction;
+            move_team_flag(d.alias, d.alias+"0", 100, 0, true);
+            update_url();
+          }
+        })
+
+
+    gTeam.append("image")
+        .filter(function(e, j) { e.x=0; e.y=0; return e;} )
+      //  .attr({"x": function(e, j) { return e.x; }, "y": function(e, j) { var group_offset = Math.floor(j/4) * 20; return e.y + group_offset; }}) 
+      
+        .attr({"x": 0, "y": 0}) 
+      
+        .attr({"width": team_width*1.5, "height": team_height*1.5})
+        .attr({"xlink:href": function(d, i) { return "flags/flag_"+d.alias.toLowerCase()+".png"; }})
+        .attr({"class": "flag", "id": function(d) { return "flag_"+d.alias;}})
+        .on("mouseenter", function(d, i) {
+
+          if(dragit.statemachine.current_state != "drag") {
+       //     update_paths("SHOW_TEAM");
+     }
+        })
+        .on("mouseleave", function(d, i) {
+          if(dragit.statemachine.current_state != "drag")
+            update_paths("FROM_IMAGE");
+        })
+        .attr("title", function(d) {return d.alias})
+
+    // Ghost used for dragging elements
+    gTeam.append("image")
+       .filter(function(e, j) { e.x=0; e.y=0; return e;} )
+   //     .attr({"x": function(e, j) { return e.x; }, "y": function(e, j) { var group_offset = Math.floor(j/4) * 20; return e.y + group_offset; }}) 
+    
+        .attr({"x": 0, "y": 0}) 
+        .attr({"width": team_width*1.5, "height": team_height*1.5})
+        .attr({"xlink:href": function(d, i) { return "flags/flag_"+d.alias.toLowerCase()+".png"; }})
+        .attr({"class": "flag", "id": function(d) { return "flag2_"+d.alias;}})
+        .on("mouseenter", function(d, i) {
+          
+          current_team = d.team.slice(0, 3);
+          if(dragit.statemachine.current_state != "drag") {
+            update_paths("SHOW_TEAM");
+            d3.select("#background").transition().style("opacity", 0)
+          }
+
+        })
+        .on("mouseleave", function(d, i) {
+
+
+          if(dragit.statemachine.current_state != "drag") {
+            update_paths("ALL_PATHS");
+
+            d3.select("#background").transition().style("opacity", background_opacity)
+
+          }
+
+        })
+        .style("opacity", .5)
+        .attr("alt", function(d) {return d.alias})
+        .call(dragit.object.activate)
+
+
+    // Each flag should have multiple paths
+    dragit.data = all_paths.map(function(d) {
+      return d.map(function(d) { 
+        var t = get_team_coordinates(d);
+        return  t;
+      });
+    })
+
+    // Only return data for the given paths
+    function filter_dragit_data_by_team(team) {
+
+      get_details("dragstart");
+
+      nonoccupied_paths_index = [];
+
+      // Find data for the given team
+      dragit.data = all_paths.filter(function(d, i) {
+
+        var last_game = find_latest_game_path(d);
+        // console.log(last_game, find_team_by_game_predictions(last_game, current_prediction))
+
+        if(find_path_by_team(team.alias, d)) {// && find_team_by_game_predictions(last_game, current_prediction) == false) {
+          return d;
+        }
+
+      })
+      .map(function(d, i) {
+       
+       var last_game = find_latest_game_path(d);
+
+        if(find_team_by_game_predictions(last_game, current_prediction)==false) {
+          nonoccupied_paths_index.push(i)
+        }
+
+        return d.filter(function(d) { return d != "XXX"; }).map(function(d) { 
+          
+          var t = get_team_coordinates(d);
+          return  t;
+        });
+      })
+
+    }
+
+    function drag_update() {
+        d3.select("#flag_"+current_team)
+          .transition().duration(0).delay(0)
+          //.attr("transform", "translate(17, 0)")
+          .attr({"x": function(e, j) { return parseInt(dragit.pointGuide.attr("cx"))+60; }, "y": function(e, j) { return  parseInt(dragit.pointGuide.attr("cy"))+40; }}) 
+
+    }
+
+    function end_update() {
+
+      get_details("dragend");
+     // svg.selectAll(".team").style("fill", "white")
+
+      setTimeout(function() {
+
+      d3.select("#background").transition().style("opacity", background_opacity)
+      // TODO: update all paths      
+    //  update_paths("END_UPDATE");
+
+        current_path = -1;
+
+        updateTwitterValues();
+
+      }, 1500)
+
+
+    }
+
+
+    dragit.evt.dragstart.push(filter_dragit_data_by_team);
+    dragit.evt.dragstart.push(store_current_team);
+    dragit.evt.dragstart.push(display_ghost);
+
+
+//    dragit.evt.dragend.push(reset_highlight_team);
+    dragit.evt.drag.push(drag_update);
+
+    // Update the prediction
+    dragit.evt.dragend.push(update_flags);
+    dragit.evt.dragend.push(update_url);
+
+    dragit.evt.dragend.push(end_update);
+
+    dragit.mouse.dragging = "free";
+    dragit.object.offsetX = -100;
+    dragit.object.offsetY = -50;
+
+
+
+    function update() {
+
+      var coords = dragit.data[dragit.trajectory.index_min][dragit.time.current];
+
+      var team_paths = all_paths.filter(function(d) {
+
+        if(find_path_by_team(current_team, d)) {
+          return d;
+        }
+
+      })
+
+
+      current_path = all_paths.indexOf(team_paths[dragit.trajectory.index_min]);
+      current_game = find_latest_game_path(all_paths[current_path]);
+      update_paths("FROM_UPDATE");
+
+
+    }
+
+
+    dragit.object.update = update;
+
+    svg.selectAll(".gTeam")
+      .on("mouseenter", function(d, i) {
+        if(i>=98 && i <=124) {// TO remove if other teams placeholders are activated
+        current_game = "r"+d.team;
+        } else
+          current_game = d.team;
+
+          console.log("curre", current_game, i)
+        if(dragit.statemachine.current_state != "drag")
+          update_paths("SHOW_GAME");
+      })
+      .on("mouseleave", function(d, i) {
+
+        if(dragit.statemachine.current_state != "drag") {
+          update_paths("ALL_PATHS");
+        }
+      });  
+
+  //////////////////////////////////////////////////////////////////
+  // TITLES Categories /////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////
+
+  unique_groups.forEach(function(d, i) {
+
+    gDescription.append("svg:text")
+                .attr("dx", 100)
+                .attr("dy", -20 + i*109)
+                .attr("text-anchor", "middle")
+                .attr("class", "description")
+                .text("Group "+d)
+  })
+
+  gDescription.append("svg:text")
+              .attr("dx", 330)
+              .attr("dy", 65)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Round of 16")
+
+  gDescription.append("svg:text")
+              .attr("dx", 470)
+              .attr("dy", 150)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Quarter-Finals")
+
+  gDescription.append("svg:text")
+              .attr("dx", 590)
+              .attr("dy", 180)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Semi-Finals")
+
+  gDescription.append("svg:text")
+              .attr("dx", 695)
+              .attr("dy", 155)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Final")
+
+  gDescription.append("svg:text")
+              .attr("dx", 810)
+              .attr("dy", 135)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Winner")
+
+  gDescription.append("svg:text")
+              .attr("dx", 810)
+              .attr("dy", 185)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("2nd Place")
+
+
+  gDescription.append("svg:text")
+              .attr("dx", 810)
+              .attr("dy", 295)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("3rd Place")
+
+  gDescription.append("svg:text")
+              .attr("dx", 810)
+              .attr("dy", 340)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("4th Place")
+
+  gDescription.append("svg:text")
+              .attr("dx", 690)
+              .attr("dy", 320)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Third Place")
+
+  gDescription.append("svg:text")
+              .attr("dx", 690)
+              .attr("dy", 350)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Match")
+
+  gDescription.append("svg:text")
+              .attr("dx", 285)
+              .attr("dy", 715)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Eliminated after")
+
+  gDescription.append("svg:text")
+              .attr("dx", 285)
+              .attr("dy", 735)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Group Stage")
+ 
+   gDescription.append("svg:text")
+              .attr("dx", 490)
+              .attr("dy", 625)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Eliminated after")
+
+  gDescription.append("svg:text")
+              .attr("dx", 490)
+              .attr("dy", 645)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Round of 16")
+ 
+  gDescription.append("svg:text")
+              .attr("dx", 610)
+              .attr("dy", 425)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Eliminated after")
+
+  gDescription.append("svg:text")
+              .attr("dx", 610)
+              .attr("dy", 445)
+              .attr("class", "description")
+              .attr("text-anchor", "middle")
+              .text("Quarter-Finals")
+ 
+
+d3.selectAll('text').style('display', 'none'); 
+d3.selectAll('.description').style('display', 'block')
+
+  create_paths();
+  setTimeout(function() {
+    get_details("init")
+    display_prediction(current_prediction, []);
+    updateTwitterValues();
+
+
+  data.teams.forEach(function(t, i) {
+
+    if(!test_team_in_prediction(t.alias, current_prediction))
+      move_team_flag(t.alias, t.alias+"0", 0, 0, true);
+
+  })
+
+
+  }, 500)
+
+
+  </script> 
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-51541406-1', 'vuillemot.net');
+    ga('send', 'pageview');
+
+  </script>    
+  </body>
+</html>
